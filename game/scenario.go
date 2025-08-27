@@ -6,14 +6,16 @@ import (
 )
 
 type Scenario struct {
-	Theme       string            `json:"theme"`
-	Setting     string            `json:"setting"`
-	BackStory   string            `json:"backstory"`
-	Rooms       []Room            `json:"rooms"`
-	Items       []Item            `json:"items"`
-	Puzzles     []Puzzle          `json:"puzzles"`
-	WinCondition string           `json:"win_condition"`
-	Hints       map[string]string `json:"hints"`
+	Theme        string            `json:"theme"`
+	Setting      string            `json:"setting"`
+	BackStory    string            `json:"backstory"`
+	Rooms        []Room            `json:"rooms"`
+	Items        []Item            `json:"items"`
+	Puzzles      []Puzzle          `json:"puzzles"`
+	Actions      []Action          `json:"actions"`
+	WinCondition string            `json:"win_condition"`
+	Hints        map[string]string `json:"hints"`
+	ProgressiveHints []ProgressiveHint `json:"progressive_hints"`
 }
 
 type Room struct {
@@ -45,6 +47,44 @@ type Puzzle struct {
 	RequiredItems []string `json:"required_items"`
 	Reward      string   `json:"reward"`
 	Solved      bool     `json:"solved"`
+}
+
+type Action struct {
+	ID          string            `json:"id"`
+	Trigger     ActionTrigger     `json:"trigger"`
+	Conditions  []ActionCondition `json:"conditions"`
+	Effects     []ActionEffect    `json:"effects"`
+	Message     string            `json:"message"`
+	OneTimeOnly bool              `json:"one_time_only"`
+}
+
+type ActionTrigger struct {
+	Type   string `json:"type"` // "examine", "use", "use_with", "take"
+	Target string `json:"target"` // item ID, room feature, etc.
+	With   string `json:"with,omitempty"` // for "use_with" actions
+}
+
+type ActionCondition struct {
+	Type  string `json:"type"` // "has_item", "in_room", "puzzle_solved", "action_performed"
+	Value string `json:"value"`
+}
+
+type ActionEffect struct {
+	Type   string `json:"type"` // "reveal_item", "hide_item", "unlock_room", "add_inventory", "remove_inventory"
+	Target string `json:"target"`
+	Value  string `json:"value,omitempty"`
+}
+
+type ProgressiveHint struct {
+	Context     string   `json:"context"` // "room_id" or "puzzle_id" 
+	Triggers    []HintTrigger `json:"triggers"`
+	HintText    string   `json:"hint_text"`
+	Priority    int      `json:"priority"` // Higher priority hints show first
+}
+
+type HintTrigger struct {
+	Type      string `json:"type"` // "failed_attempts", "time_spent", "commands_tried"
+	Threshold int    `json:"threshold"`
 }
 
 func (s *Scenario) ToJSON() ([]byte, error) {

@@ -89,12 +89,13 @@ Make it challenging but solvable. Include at least 3 puzzles and 5 items. Some i
 }
 
 type NarrationContext struct {
-	CurrentRoom    *game.Room
-	LastAction     string
-	LastResult     string
-	Inventory      []string
-	GameState      *game.GameState
-	PlayerInput    string
+	CurrentRoom      *game.Room
+	LastAction       string
+	LastResult       string
+	Inventory        []string
+	GameState        *game.GameState
+	PlayerInput      string
+	ProgressiveHints []string
 }
 
 func (c *Client) GenerateNarration(ctx NarrationContext) (string, error) {
@@ -105,37 +106,51 @@ func (c *Client) GenerateNarration(ctx NarrationContext) (string, error) {
 
 	scenario := ctx.GameState.Scenario
 	
-	prompt := fmt.Sprintf(`You are an AI narrator for an escape room game. Provide immersive, atmospheric narration based on the current situation.
+	hintsContext := ""
+	if len(ctx.ProgressiveHints) > 0 {
+		hintsContext = fmt.Sprintf("\n\nProgressive Hints Available (subtly weave these into your narration):\n%v", ctx.ProgressiveHints)
+	}
+	
+	visibleItems := []string{}
+	room, _ := ctx.GameState.Scenario.GetRoom(ctx.GameState.CurrentRoom)
+	if room != nil {
+		for _, itemID := range room.Items {
+			if item, err := ctx.GameState.Scenario.GetItem(itemID); err == nil && !item.Hidden {
+				visibleItems = append(visibleItems, item.Name)
+			}
+		}
+	}
+
+	prompt := fmt.Sprintf(`You are an atmospheric AI narrator for an escape room game. The game engine has already provided the factual information to the player. Your job is ONLY to add mysterious, immersive atmosphere.
 
 Theme: %s
-Setting: %s
+Setting: %s  
 Current Room: %s - %s
+Current Situation: %s
 
-Last Action: %s
-Last Result: %s
-Player Input: %s
-
+Player's Last Action: %s
 Inventory: %v
-Moves: %d
-Puzzles Solved: %d/%d
+Progress: %d/%d puzzles solved
+Commands Tried: %d%s
 
-Provide a 2-3 sentence response that:
-1. Acknowledges the player's action
-2. Describes the current atmosphere/mood
-3. Gives subtle hints about what to do next (without being obvious)
+Provide 1-2 sentences of pure atmospheric narration that:
+1. Adds mood and mystery to the current situation
+2. If progressive hints are provided, subtly incorporate them into the atmosphere
+3. NEVER repeat factual information (items, room details, action results) - these are handled separately
+4. Focus on sensory details, emotions, tension, or mysterious ambiance
 
-Keep the tone mysterious and engaging. Don't repeat the exact room description.`,
+Keep it brief, atmospheric, and avoid stating facts the player already knows.`,
 		scenario.Theme,
 		scenario.Setting,
 		ctx.CurrentRoom.Name,
 		ctx.CurrentRoom.Description,
-		ctx.LastAction,
 		ctx.LastResult,
-		ctx.PlayerInput,
+		ctx.LastAction,
 		ctx.Inventory,
-		ctx.GameState.Moves,
 		len(ctx.GameState.SolvedPuzzles),
-		len(scenario.Puzzles))
+		len(scenario.Puzzles),
+		ctx.GameState.CommandAttempts,
+		hintsContext)
 
 	resp, err := c.client.CreateChatCompletion(
 		context.Background(),
